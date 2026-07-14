@@ -1,20 +1,21 @@
-import { buildDailyReport, getReportDay } from './src/report.js';
 import { startScheduler } from './src/scheduler.js';
-import { sendTelegramMessage } from './src/telegram.js';
+import { runReport } from './src/reportDelivery.js';
 
 const args = new Set(process.argv.slice(2));
 const sendNow = args.has('--report');
 const useYesterday = args.has('--yesterday');
+const sendToTelegram = args.has('--send');
 
 async function sendManualReport() {
-  const reportDay = getReportDay({ yesterday: useYesterday });
-  const message = await buildDailyReport(reportDay);
-  await sendTelegramMessage(message);
-  console.log(`Report sent for ${reportDay.toISODate()}`);
+  await runReport({
+    send: sendToTelegram || sendNow,
+    yesterday: useYesterday,
+    preview: true,
+  });
 }
 
 async function main() {
-  if (sendNow) {
+  if (sendNow || sendToTelegram) {
     await sendManualReport();
     return;
   }

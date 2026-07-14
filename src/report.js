@@ -16,7 +16,27 @@ function formatDayRange(day) {
 
 export async function buildDailyReport(targetDay) {
   const day = targetDay.setZone(config.timezone).startOf('day');
-  const allLeads = await fetchLeads();
+
+  let allLeads = [];
+  try {
+    allLeads = await fetchLeads();
+  } catch (error) {
+    return [
+      '📊 <b>Daily Leads Overview</b>',
+      '',
+      `📅 <b>Date:</b> ${day.toFormat('cccc, LLLL d, yyyy')} (${day.toFormat('MM/dd/yyyy')})`,
+      `🕐 <b>Period:</b> ${formatDayRange(day)}`,
+      '',
+      '<b>Lead data unavailable</b>',
+      '',
+      `⚠️ Unable to load Google Sheet data: ${error.message}`,
+      '',
+      'Please make the sheet public or provide a published CSV URL in GOOGLE_SHEET_CSV_URL.',
+      '',
+      'If you are using Google Sheets API, verify that the API key is valid and the sheet is shared with the appropriate permissions.',
+    ].join('\n');
+  }
+
   const dayLeads = filterLeadsForDay(allLeads, day);
   const summary = summarizeLeads(dayLeads);
 

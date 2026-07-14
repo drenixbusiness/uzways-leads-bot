@@ -1,5 +1,61 @@
 import { DateTime } from 'luxon';
 import { config } from './config.js';
+import { fetchGoogleSheetRows } from './googleSheetsService.js';
+import { fetchGoogleSheetWithApiKey } from './googleApiKeyService.js';
+
+function normalizeHeaderValue(value) {
+  return (value || '').toString().trim().toLowerCase();
+}
+
+function findColumnIndex(headers, candidates) {
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeHeaderValue(candidate);
+    const index = headers.findIndex((header) => normalizeHeaderValue(header) === normalizedCandidate);
+    if (index >= 0) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function parseRowToLead(row, headers) {
+  const nameIndex = findColumnIndex(headers, ['name', 'full name', 'lead name', 'contact name']);
+  const dateIndex = findColumnIndex(headers, ['date', 'created at', 'date created', 'time']);
+  const platformIndex = findColumnIndex(headers, ['platform', 'source', 'channel']);
+  const positionIndex = findColumnIndex(headers, ['position', 'role', 'lead type']);
+
+  const name = nameIndex >= 0 ? (row[nameIndex] || '').trim() : '';
+  const dateCreated = dateIndex >= 0 ? (row[dateIndex] || '').trim() : '';
+  const platform = platformIndex >= 0 ? (row[platformIndex] || '').trim() : '';
+  const position = positionIndex >= 0 ? (row[positionIndex] || '').trim() : '';
+
+  const createdAt = parseLeadDate(dateCreated);
+
+  if (!createdAt) {
+    return null;
+  }
+
+  return {
+    name: name || 'Unknown',
+    createdAt,
+    platform: (platform || '').trim().toLowerCase(),
+    position: (position || '').trim().toLowerCase(),
+  };
+}
+
+async function fetchGoogleSheetsApiData() {
+  const rows = await fetchGoogleSheetRows();
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const [headers, ...dataRows] = rows;
+  return dataRows
+    .map((row) => parseRowToLead(Object.values(row), headers || []))
+    .filter(Boolean);
+}
 
 const PLATFORM_LABELS = {
   fb: 'Facebook',
@@ -55,15 +111,35 @@ function parseLeadDate(rawValue) {
   return parsed;
 }
 
-export async function fetchLeads() {
-  const url = `https://docs.google.com/spreadsheets/d/${config.googleSheetId}/export?format=csv`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Google Sheet (${response.status})`);
+function buildDirectSheetExportUrl() {
+  if (!config.googleSheetId) {
+    throw new Error('Missing Google Sheet config');
   }
 
-  const csv = await response.text();
+  if (/^https?:\/\//i.test(config.googleSheetId)) {
+    return config.googleSheetId.replace(/\/edit.*$/i, '/export?format=csv');
+  }
+
+  return `https://docs.google.com/spreadsheets/d/${config.googleSheetId}/export?format=csv`;
+}
+
+function buildSheetExportUrlCandidates() {
+  const candidates = [];
+
+  if (config.googleSheetCsvUrl) {
+    candidates.push(config.googleSheetCsvUrl);
+  }
+
+  candidates.push(buildDirectSheetExportUrl());
+
+  return [...new Set(candidates)];
+}
+
+function parseCsvLeads(csv) {
+  if (!csv) {
+    return [];
+  }
+
   const lines = csv.split(/\r?\n/).filter((line) => line.trim().length > 0);
 
   if (lines.length <= 1) {
@@ -71,24 +147,109 @@ export async function fetchLeads() {
   }
 
   const leads = [];
+  const [headers, ...dataLines] = lines.map((line) => parseCsvLine(line));
 
-  for (const line of lines.slice(1)) {
-    const [name, dateCreated, platform, position] = parseCsvLine(line);
-    const createdAt = parseLeadDate(dateCreated);
-
-    if (!createdAt) {
-      continue;
+  for (const line of dataLines) {
+    const lead = parseRowToLead(line, headers);
+    if (lead) {
+      leads.push(lead);
     }
-
-    leads.push({
-      name: name || 'Unknown',
-      createdAt,
-      platform: (platform || '').trim().toLowerCase(),
-      position: (position || '').trim().toLowerCase(),
-    });
   }
 
   return leads;
+}
+
+async function fetchLeadsFromCsvUrls() {
+  const urls = buildSheetExportUrlCandidates();
+  const errors = [];
+
+  for (const url of urls) {
+    try {
+      const csv = await fetchCsvFromUrl(url);
+      return parseCsvLeads(csv);
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  throw new Error(errors.join(' | ') || 'Failed to fetch Google Sheet CSV');
+}
+
+async function fetchLeadsFromApiKey() {
+  const apiRows = await fetchGoogleSheetWithApiKey();
+
+  return apiRows.map((row) => ({
+    name: row.Name || row.name || 'Unknown',
+    createdAt: parseLeadDate(row.Date || row.date || ''),
+    platform: (row.Platform || row.platform || '').trim().toLowerCase(),
+    position: (row.Position || row.position || '').trim().toLowerCase(),
+  })).filter((lead) => lead.createdAt);
+}
+
+async function fetchCsvFromUrl(url) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/csv,text/plain,*/*',
+    },
+  });
+
+  const body = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`CSV URL failed (${response.status}): ${url}`);
+  }
+
+  if (body.trimStart().startsWith('<!DOCTYPE') || body.trimStart().startsWith('<html')) {
+    throw new Error(`CSV URL returned HTML instead of CSV: ${url}`);
+  }
+
+  return normalizeCsvText(body);
+}
+
+function normalizeCsvText(csv) {
+  if (!csv) return '';
+  return csv
+    .replace(/\uFEFF/g, '')
+    .trim();
+}
+
+export async function fetchLeads() {
+  const errors = [];
+
+  if (config.googleSheetCsvUrl) {
+    try {
+      return await fetchLeadsFromCsvUrls();
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  if (config.googleApiKey) {
+    try {
+      const apiLeads = await fetchLeadsFromApiKey();
+      if (apiLeads.length > 0) {
+        return apiLeads;
+      }
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  try {
+    return await fetchGoogleSheetsApiData();
+  } catch (error) {
+    errors.push(error.message);
+  }
+
+  if (!config.googleSheetCsvUrl) {
+    try {
+      return await fetchLeadsFromCsvUrls();
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  throw new Error(errors.join(' | ') || 'Failed to fetch Google Sheet');
 }
 
 export function filterLeadsForDay(leads, day) {

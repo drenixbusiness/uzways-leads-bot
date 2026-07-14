@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node index.js",
     "report": "node index.js --report",
+    "report:send": "node index.js --report --send",
+    "test": "node --test",
     "report:yesterday": "node index.js --report --yesterday",
+    "check:sheet": "node debug-fetch.mjs",
     "pm2:start": "npx pm2 start ecosystem.config.cjs",
     "pm2:stop": "npx pm2 stop ecosystem.config.cjs",
     "pm2:restart": "npx pm2 restart ecosystem.config.cjs",
@@ -17,6 +20,7 @@
   },
   "dependencies": {
     "dotenv": "^16.4.7",
+    "googleapis": "^160.0.0",
     "luxon": "^3.5.0",
     "node-cron": "^3.0.3"
   },
