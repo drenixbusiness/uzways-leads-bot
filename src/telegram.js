@@ -1,6 +1,6 @@
 import { config } from './config.js';
 
-export async function sendTelegramMessage(text) {
+async function sendToChat(chatId, text) {
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
 
   const response = await fetch(url, {
@@ -9,7 +9,7 @@ export async function sendTelegramMessage(text) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      chat_id: config.telegramChatId,
+      chat_id: chatId,
       text,
       parse_mode: 'HTML',
       disable_web_page_preview: true,
@@ -23,4 +23,27 @@ export async function sendTelegramMessage(text) {
   }
 
   return data;
+}
+
+export async function sendTelegramMessage(text) {
+  const results = [];
+  const errors = [];
+
+  for (const chatId of config.telegramChatIds) {
+    try {
+      results.push(await sendToChat(chatId, text));
+    } catch (error) {
+      errors.push(`${chatId}: ${error.message}`);
+    }
+  }
+
+  if (results.length === 0) {
+    throw new Error(errors.join(' | ') || 'Failed to send Telegram message');
+  }
+
+  if (errors.length > 0) {
+    console.warn(`Telegram delivery warnings: ${errors.join(' | ')}`);
+  }
+
+  return results;
 }

@@ -4,7 +4,11 @@ import { buildDailyReport, getReportDay } from './report.js';
 import { sendTelegramMessage } from './telegram.js';
 
 export async function sendScheduledReport() {
-  const reportDay = getReportDay();
+  const { DateTime } = await import('luxon');
+  const nowHour = DateTime.now().setZone(config.timezone).hour;
+  const isMidnight = nowHour === 0;
+  
+  const reportDay = getReportDay({ yesterday: isMidnight });
   const message = await buildDailyReport(reportDay);
   await sendTelegramMessage(message);
   console.log(`[${new Date().toISOString()}] Daily report sent for ${reportDay.toISODate()}`);

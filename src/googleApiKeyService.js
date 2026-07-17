@@ -8,7 +8,7 @@ export async function fetchGoogleSheetWithApiKey() {
     throw new Error('Missing GOOGLE_API_KEY or GOOGLE_SHEET_ID');
   }
 
-  const range = 'Sheet1!A:Z';
+  const range = '33!A:Z';
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
 
   const response = await fetch(url, {

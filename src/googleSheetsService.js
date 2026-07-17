@@ -47,7 +47,7 @@ export async function fetchGoogleSheetRows() {
   const sheets = google.sheets({ version: 'v4', auth });
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: config.googleSheetId,
-    range: 'Sheet1!A:D',
+    range: '33!A:Z',
   });
 
   const rows = response.data.values || [];

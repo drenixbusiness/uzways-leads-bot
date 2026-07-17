@@ -21,9 +21,34 @@ function parseReportTimes(env) {
     .filter(({ hour, minute }) => Number.isFinite(hour) && Number.isFinite(minute));
 }
 
+function parseTelegramChatIds() {
+  const ids = [];
+
+  for (const envKey of ['TELEGRAM_CHAT_ID', 'TELEGRAM_CHAT_IDS']) {
+    const value = process.env[envKey];
+    if (!value) continue;
+
+    ids.push(
+      ...value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    );
+  }
+
+  return [...new Set(ids)];
+}
+
+const telegramChatIds = parseTelegramChatIds();
+
+if (telegramChatIds.length === 0) {
+  throw new Error('Missing required environment variable: TELEGRAM_CHAT_ID');
+}
+
 export const config = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
-  telegramChatId: process.env.TELEGRAM_CHAT_ID,
+  telegramChatId: telegramChatIds[0],
+  telegramChatIds,
   googleSheetId: process.env.GOOGLE_SHEET_ID,
   googleSheetCsvUrl: process.env.GOOGLE_SHEET_CSV_URL,
   googleSheetProxyUrl: process.env.GOOGLE_SHEET_PROXY_URL,
