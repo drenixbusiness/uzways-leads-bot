@@ -1,0 +1,38 @@
+name: Daily Leads Report
+
+on:
+  schedule:
+    # Chikago vaqti bilan 23:59 (UTC bilan 04:59)
+    - cron: '59 4 * * *'
+  workflow_dispatch: # Qo'lda ham ishga tushirish imkoniyati
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Send daily report
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SHEET_CSV_URL: ${{ secrets.GOOGLE_SHEET_CSV_URL }}
+          GOOGLE_SHEET_GID: ${{ secrets.GOOGLE_SHEET_GID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          TIMEZONE: America/Chicago
+          REPORT_HOUR: '23'
+          REPORT_MINUTE: '59'
+        run: node index.js --report --send
