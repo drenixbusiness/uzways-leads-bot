@@ -11,20 +11,14 @@ if (-not (Test-Path './package.json')) {
 
 $DeployName = 'leads-daily-bot'
 $Timestamp = Get-Date -Format 'yyyyMMddHHmmss'
-$LocalZip = Join-Path $env:TEMP "$DeployName-deploy-$Timestamp.zip"
-$RemoteZip = '/tmp/$DeployName-deploy-$Timestamp.zip'
+$LocalZip = Join-Path $env:TEMP "$DeployName-deploy-$Timestamp.tar.gz"
+$RemoteZip = "/tmp/$DeployName-deploy-$Timestamp.tar.gz"
 
 Write-Host "Creating archive $LocalZip..."
-
-$exclude = @('node_modules', '.git', '.idea', 'npm-debug.log', '*.log')
-$files = Get-ChildItem -Recurse -Force | Where-Object {
-  -not ($exclude | ForEach-Object { $_ -as [regex] ? $_.IsMatch($_.Name) : $_.Equals($_.Name) })
-}
-
-Compress-Archive -Path * -DestinationPath $LocalZip -Force
+tar.exe --exclude='node_modules' --exclude='.git' --exclude='.idea' --exclude='npm-debug.log' --exclude='*.log' -czf "$LocalZip" .
 
 Write-Host "Uploading archive to $Remote..."
-scp $LocalZip "$Remote:$RemoteZip"
+scp $LocalZip "${Remote}:$RemoteZip"
 
 $remoteCommand = @"
 set -euo pipefail
