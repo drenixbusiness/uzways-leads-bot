@@ -11,7 +11,7 @@ import {
 function formatDayRange(day) {
   const start = day.startOf('day').toFormat('hh:mm a');
   const end = day.endOf('day').toFormat('hh:mm a');
-  return `${start} – ${end} CT`;
+  return `${start} – ${end} UZT`;
 }
 
 export async function buildDailyReport(targetDay) {
