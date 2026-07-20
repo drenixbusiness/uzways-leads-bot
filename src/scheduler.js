@@ -26,6 +26,9 @@ export function startScheduler() {
   const cronExpressions = getDailyCronExpressions();
 
   console.log(`Scheduler started (${config.timezone})`);
+  if (config.testMode) {
+    console.log('TEST REJIMI: Telegram xabarlari yuborilmaydi');
+  }
   cronExpressions.forEach((expr, idx) => {
     console.log(`Daily report cron${cronExpressions.length > 1 ? `[${idx + 1}]` : ''}: ${expr}`);
   });

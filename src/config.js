@@ -61,4 +61,5 @@ export const config = {
   reportMinute: Number(process.env.REPORT_MINUTE ?? 1),
   // REPORT_TIMES: comma-separated list like "08:00,12:00,16:30"
   reportTimes: parseReportTimes(process.env.REPORT_TIMES),
+  testMode: process.env.TEST_MODE === 'true',
 };

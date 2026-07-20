@@ -26,10 +26,24 @@ async function sendToChat(chatId, text) {
 }
 
 export async function sendTelegramMessageTo(chatId, text) {
+  if (config.testMode) {
+    console.log(`TEST REJIMI: Xabar yuborilmadi (${chatId})`);
+    console.log(text);
+    return { ok: true, testMode: true, chatId };
+  }
+
   return sendToChat(chatId, text);
 }
 
 export async function sendTelegramMessage(text) {
+  if (config.testMode) {
+    for (const chatId of config.telegramChatIds) {
+      console.log(`TEST REJIMI: Xabar yuborilmadi (${chatId})`);
+    }
+    console.log(text);
+    return config.telegramChatIds.map((chatId) => ({ ok: true, testMode: true, chatId }));
+  }
+
   const results = [];
   const errors = [];
 
