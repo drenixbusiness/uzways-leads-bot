@@ -25,6 +25,10 @@ async function sendToChat(chatId, text) {
   return data;
 }
 
+export async function sendTelegramMessageTo(chatId, text) {
+  return sendToChat(chatId, text);
+}
+
 export async function sendTelegramMessage(text) {
   const results = [];
   const errors = [];
